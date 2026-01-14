@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chấm công & tính lương</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Chấm công">
+<meta name="theme-color" content="#1877f2">
+
+<style>
+body{
+  margin:0;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial;
+  background:#f0f2f5;
+  display:flex;
+  justify-content:center;
+}
+.app{
+  width:100%;
+  max-width:520px;
+  min-width:320px;
+  margin:12px auto;
+  background:#fff;
+  border-radius:18px;
+  box-shadow:0 15px 40px rgba(0,0,0,.2);
+  overflow:hidden;
+}
+/* ... (CSS giữ nguyên phần còn lại từ code bạn gửi trước) ... */
+.footer{
+  display:flex;
+  justify-content:center;
+  padding:12px;
+  border-top:1px solid #eee;
+}
+.author-link{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  text-decoration:none;
+  color:#333;
+  font-size:13px;
+}
+.logo{
+  width:30px;
+  height:30px;
+  background:#1877f2;
+  color:#fff;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:600;
+}
+</style>
+</head>
+
+<body>
+<div class="app">
+
+  <!-- (NỘI DUNG APP GIỮ NGUYÊN NHƯ CŨ) -->
+
+  <div class="footer">
+    <a href="https://www.facebook.com/share/17roWtUYg2/?mibextid=wwXIfr" target="_blank" class="author-link">
+      <div class="logo">QN</div>
+      <span>Developed by <b>Bạn</b></span>
+    </a>
+  </div>
+
+</div>
+
+<!-- (PHẦN SCRIPT GIỮ NGUYÊN NHƯ CŨ) -->
+
+<script>
+let data=JSON.parse(localStorage.getItem("chamcong")||"{}");
+
+/* RESET CUỐI THÁNG */
+(function(){
+  const now=new Date();
+  const m=now.getFullYear()+"-"+(now.getMonth()+1);
+  if(localStorage.getItem("lastMonth")!==m){
+    localStorage.removeItem("chamcong");
+    localStorage.setItem("lastMonth",m);
+    data={};
+  }
+})();
+
+/* CLOCK */
+function updateClock(){
+  const n=new Date();
+  today.innerText=n.toLocaleDateString("vi-VN",{weekday:"long",day:"2-digit",month:"2-digit",year:"numeric"});
+  clock.innerText=n.toLocaleTimeString("vi-VN");
+}
+setInterval(updateClock,1000);updateClock();
+
+/* INFO */
+function toggleInfo(){
+  infoBox.classList.toggle("open");
+  infoArrow.innerText=infoBox.classList.contains("open")?"▲":"▼";
+}
+[nameInput,jobInput,salaryDayInput,otRateInput].forEach(i=>{
+  i.value=localStorage.getItem(i.id)||"";
+  i.oninput=()=>localStorage.setItem(i.id,i.value);
+});
+
+/* SOUND */
+function playSound(t){
+  const s=t==="work"?soundWork:soundOff;
+  s.currentTime=0;
+  s.play().catch(()=>{});
+}
+
+/* POPUP */
+const workMsg=["Làm tốt lắm 💪","Chiến thôi 🔥","Cố lên 👏"];
+const offMsg=["Nghỉ ngơi nha 😌","Thư giãn chút 🌿"];
+function showMotivate(t){
+  motivate.style.display="flex";
+  motivateBox.className="motivate-box "+(t==="work"?"success":"offStyle");
+  motivateText.innerText=(t==="work"?workMsg:offMsg)[Math.floor(Math.random()*2)];
+  setTimeout(()=>motivate.style.display="none",2000);
+}
+
+/* CHECK IN */
+function extractOT(n){const m=n.match(/(\d+(\.\d+)?)\s*h/i);return m?+m[1]:0}
+function save(st){
+  const d=new Date(),k=d.toLocaleDateString("vi-VN");
+  data[k]={date:k,status:st,time:d.toLocaleTimeString("vi-VN"),note:noteInput.value};
+  localStorage.setItem("chamcong",JSON.stringify(data));
+  noteInput.value="";
+  render();
+}
+function markWork(){save("Đi làm");playSound("work");showMotivate("work")}
+function markOff(){save("Nghỉ");playSound("off");showMotivate("off")}
+
+/* RENDER */
+function render(){
+  log.innerHTML="";
+  let w=0,ot=0;
+  Object.values(data).forEach(r=>{
+    log.innerHTML+=`<tr class="${r.status==="Đi làm"?"work":"off"}">
+    <td>${r.date}</td><td>${r.status}</td><td>${r.time}</td><td>${r.note||""}</td></tr>`;
+    if(r.status==="Đi làm"){w++;ot+=extractOT(r.note||"")}
+  });
+  workDays.innerText=w;otHours.innerText=ot;
+  totalSalary.innerText=((w*(salaryDayInput.value||0))+(ot*(otRateInput.value||0))).toLocaleString("vi-VN");
+  showName.innerText=nameInput.value;showJob.innerText=jobInput.value;
+  renderCalendar();
+}
+
+/* CALENDAR */
+function renderCalendar(){
+  calendar.innerHTML="";
+  const n=new Date(),y=n.getFullYear(),m=n.getMonth();
+  const f=new Date(y,m,1).getDay(),d=new Date(y,m+1,0).getDate();
+  ["CN","T2","T3","T4","T5","T6","T7"].forEach(h=>calendar.innerHTML+=`<div class="cal-head">${h}</div>`);
+  for(let i=0;i<f;i++)calendar.innerHTML+="<div></div>";
+  for(let i=1;i<=d;i++){
+    const k=new Date(y,m,i).toLocaleDateString("vi-VN");
+    let c="cal-day";
+    if(data[k])c+=" "+(data[k].status==="Đi làm"?"cal-work":"cal-off");
+    if(i===n.getDate())c+=" cal-today";
+    calendar.innerHTML+=`<div class="${c}">${i}</div>`;
+  }
+}
+
+/* NHẮC QUÊN CHẤM CÔNG (19h) */
+const REMIND_HOUR=19, REMIND_MIN=0;
+setInterval(()=>{
+  const n=new Date();
+  if(n.getHours()!==REMIND_HOUR||n.getMinutes()!==REMIND_MIN) return;
+  const k=n.toLocaleDateString("vi-VN");
+  if(data[k]) return;
+  alert("⏰ Bạn chưa chấm công hôm nay!");
+  if(navigator.vibrate) navigator.vibrate([200,100,200]);
+  soundOff.play().catch(()=>{});
+},30000);
+
+render();
+
+/* PWA SERVICE WORKER */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js");
+  });
+}
+</script>
+
+</body>
+</html>
