@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Quản lý khoản góp & công nợ</title>
+
+<style>
+*{box-sizing:border-box;}
+html,body{
+    margin:0;padding:0;width:100%;height:100%;overflow-x:hidden;
+    font-family:Arial,sans-serif;
+    background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+}
+.box{
+    background:rgba(255,255,255,0.15);
+    backdrop-filter:blur(12px);
+    border-radius:15px;
+    padding:15px;
+    max-width:500px;
+    margin:auto;
+    color:white;
+    box-shadow:0 8px 25px rgba(0,0,0,0.4);
+}
+h2{text-align:center;margin-top:0;font-size:20px;}
+
+input,button{
+    padding:10px;margin:6px 0;font-size:15px;border-radius:8px;border:none;outline:none;
+}
+input{width:100%;background:rgba(255,255,255,0.95);color:#222;}
+button{
+    width:100%;
+    background:linear-gradient(90deg,#00c6ff,#0072ff);
+    color:white;font-weight:bold;
+}
+
+.form-row{display:flex;gap:6px;align-items:center;}
+.form-row .full{flex:1;}
+
+.date-icon-wrap{
+    position:relative;width:42px;height:42px;
+    background:rgba(255,255,255,0.95);
+    border-radius:8px;display:flex;
+    justify-content:center;align-items:center;
+    font-size:20px;color:#444;
+}
+.date-icon-wrap input[type="date"]{
+    position:absolute;inset:0;opacity:0;cursor:pointer;
+}
+
+.total-box{
+    margin-top:8px;background:rgba(0,0,0,0.4);
+    padding:8px;border-radius:8px;text-align:center;font-weight:bold;
+}
+
+.table-wrap{
+    max-height:60vh;overflow-y:auto;margin-top:8px;
+}
+
+table{
+    width:100%;border-collapse:collapse;
+    background:rgba(255,255,255,0.95);color:#222;border-radius:8px;
+}
+th,td{
+    padding:8px;text-align:center;border-bottom:1px solid #ddd;font-size:14px;
+}
+th{background:#0072ff;color:white;}
+
+.money-line{white-space:nowrap;}
+
+.btn-not-paid{
+    background:#e53935;color:white;border:none;
+    padding:5px 6px;border-radius:6px;font-size:12px;
+}
+.btn-paid{
+    background:#1faa59;color:white;border:none;
+    padding:5px 6px;border-radius:6px;font-size:12px;
+}
+.delete{
+    background:red;color:white;border:none;
+    padding:4px 6px;border-radius:5px;font-size:12px;
+}
+</style>
+</head>
+
+<body>
+<div class="box">
+    <h2>📊 QUẢN LÝ KHOẢN GÓP & CÔNG NỢ</h2>
+
+    <div class="form-row">
+        <input id="name" class="full" placeholder="Tên người nợ">
+    </div>
+
+    <div class="form-row">
+        <input id="money" class="full" placeholder="Số tiền nợ (1 = 1.000đ)" type="number">
+        <div class="date-icon-wrap">📅
+            <input id="date" type="date">
+        </div>
+    </div>
+
+    <div class="form-row">
+        <input id="monthly" class="full" placeholder="Góp mỗi tháng (1 = 1.000đ)" type="number">
+    </div>
+
+    <button onclick="addRecord()">Thêm khoản nợ</button>
+
+    <div class="total-box" id="totalMoney">Tổng đang cho mượn: 0 đ</div>
+
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Thông tin</th>
+                    <th>Ngày bắt đầu</th>
+                    <th>Góp tháng này</th>
+                    <th>Xóa</th>
+                </tr>
+            </thead>
+            <tbody id="list"></tbody>
+        </table>
+    </div>
+
+    <!-- ✅ NÚT XUẤT FILE ĐẶT CUỐI -->
+    <button onclick="exportCSV()">📤 Xuất file CSV</button>
+</div>
+
+<script>
+let data = JSON.parse(localStorage.getItem("sonotable")) || [];
+
+/* Reset khi sang tháng mới */
+let currentMonthKey = new Date().getFullYear() + "-" + (new Date().getMonth()+1);
+let savedMonthKey = localStorage.getItem("currentMonthKey");
+if(savedMonthKey !== currentMonthKey){
+    data.forEach(item => item.paidThisMonth = false);
+    localStorage.setItem("currentMonthKey", currentMonthKey);
+    localStorage.setItem("sonotable", JSON.stringify(data));
+}
+
+function save(){ localStorage.setItem("sonotable", JSON.stringify(data)); }
+function formatMoney(n){ return Number(n).toLocaleString("vi-VN")+" đ"; }
+function formatDate(dateStr){ return new Date(dateStr).toLocaleDateString("vi-VN"); }
+
+function render(){
+    let list=document.getElementById("list");
+    list.innerHTML="";
+    let total=0;
+
+    data.forEach((item,index)=>{
+        total+=Number(item.money);
+        if(item.paidCount === undefined) item.paidCount = 0;
+
+        let btn = item.paidThisMonth 
+          ? `<button class="btn-paid" onclick="togglePaid(${index})">Đã góp (${item.paidCount})</button>`
+          : `<button class="btn-not-paid" onclick="togglePaid(${index})">Chưa góp (${item.paidCount})</button>`;
+
+        let row=`
+        <tr>
+            <td>
+                <b>${item.name}</b><br>
+                <span class="money-line">Nợ: ${formatMoney(item.money)}</span><br>
+                <span class="money-line">Góp/tháng: ${formatMoney(item.monthly)}</span>
+            </td>
+            <td>${item.date}</td>
+            <td>${btn}</td>
+            <td><button class="delete" onclick="removeRecord(${index})">X</button></td>
+        </tr>`;
+        list.innerHTML+=row;
+    });
+
+    document.getElementById("totalMoney").innerText =
+        "Tổng đang cho mượn: " + formatMoney(total);
+}
+
+function addRecord(){
+    let name=document.getElementById("name").value.trim();
+    let moneyInput=document.getElementById("money").value.trim();
+    let monthlyInput=document.getElementById("monthly").value.trim();
+    let dateInput=document.getElementById("date").value;
+
+    if(name==""||moneyInput==""||monthlyInput==""){
+        alert("Nhập đầy đủ nhé!");
+        return;
+    }
+
+    let money=Number(moneyInput)*1000;
+    let monthly=Number(monthlyInput)*1000;
+    let date=dateInput?formatDate(dateInput):new Date().toLocaleDateString("vi-VN");
+
+    data.push({
+        name:name,
+        money:money,
+        monthly:monthly,
+        date:date,
+        paidThisMonth:false,
+        paidCount:0
+    });
+    save();render();
+
+    document.getElementById("name").value="";
+    document.getElementById("money").value="";
+    document.getElementById("monthly").value="";
+    document.getElementById("date").value="";
+}
+
+function togglePaid(index){
+    if(!data[index].paidThisMonth){
+        data[index].paidThisMonth = true;
+        data[index].paidCount += 1;
+    }else{
+        data[index].paidThisMonth = false;
+    }
+    save();render();
+}
+
+function removeRecord(index){
+    data.splice(index,1);
+    save();render();
+}
+
+/* Xuất CSV */
+function exportCSV(){
+    if(data.length === 0){
+        alert("Chưa có dữ liệu để xuất!");
+        return;
+    }
+    let csv = "Tên,Nợ,Góp mỗi tháng,Ngày bắt đầu,Số lần đã góp,Trạng thái\n";
+    data.forEach(item=>{
+        let status = item.paidThisMonth ? "Da gop" : "Chua gop";
+        csv += `${item.name},${item.money},${item.monthly},${item.date},${item.paidCount},${status}\n`;
+    });
+    let blob = new Blob([csv], {type: "text/csv;charset=utf-8;"});
+    let link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "so_gop.csv";
+    link.click();
+}
+
+render();
+</script>
+</body>
+</html>
