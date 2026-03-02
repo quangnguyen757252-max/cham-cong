@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tài Chính V29 - Fix All Buttons</title>
+    <style>
+        :root { --p: #4A90E2; --e: #FF5252; --i: #4CAF50; --b: #FFA000; --gold: #FFD700; --dark: #1a3a5a; }
+        body { font-family: -apple-system, sans-serif; background: #121212; margin: 0; padding: 10px; display: flex; justify-content: center; }
+        .app { width: 100%; max-width: 400px; background: white; border-radius: 25px; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.4); padding-bottom: 20px; }
+        .header { background: var(--dark); color: white; padding: 15px; text-align: center; font-weight: bold; }
+        .month-nav { display: flex; justify-content: space-between; align-items: center; background: #2c3e50; color: white; padding: 10px 15px; }
+        .nav-btn { background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 15px; border-radius: 8px; cursor: pointer; }
+        
+        .calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; padding: 15px; background: #fff; }
+        .day { aspect-ratio: 1; border-radius: 12px; border: 1px solid #f0f0f0; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; font-size: 0.9rem; position: relative; }
+        .day.selected { border: 2px solid var(--p) !important; background: #eef6ff; font-weight: bold; }
+        .day.today { border: 2px solid var(--gold); background: #fffdf0; }
+        .dot-container { display: flex; gap: 2px; margin-top: 2px; height: 6px; }
+        .dot { width: 4px; height: 4px; border-radius: 50%; }
+
+        .summary { margin: 10px 15px; padding: 15px; background: #f8f9fa; border-radius: 15px; font-size: 0.85rem; position: relative; }
+        .month-detail-icon { position: absolute; top: 10px; right: 10px; font-size: 1.4rem; cursor: pointer; background: white; border-radius: 50%; padding: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .row { display: flex; justify-content: space-between; margin-bottom: 5px; width: 85%; }
+        .final { border-top: 1px solid #ddd; margin-top: 8px; padding-top: 8px; font-weight: bold; color: var(--p); font-size: 1.1rem; width: 100%; }
+
+        .goal-box { margin: 0 15px 15px 15px; padding: 15px; background: #fffef0; border: 2px dashed var(--b); border-radius: 15px; cursor: pointer; }
+        .goal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+        .progress-bar { height: 12px; background: #eee; border-radius: 6px; overflow: hidden; margin: 8px 0; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, var(--b), var(--i)); width: 0%; transition: 1s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+
+        .actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; padding: 0 15px 15px 15px; }
+        .btn-main { border: none; padding: 15px 0; border-radius: 12px; color: white; font-weight: bold; cursor: pointer; }
+
+        .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 1000; justify-content: center; align-items: center; padding: 20px; }
+        .pop { background: white; width: 95%; max-width: 350px; border-radius: 20px; padding: 25px; box-sizing: border-box; }
+        .input-full { width: 100%; display: block; padding: 14px; margin: 12px 0; border: 2px solid #ddd; border-radius: 12px; font-size: 16px; box-sizing: border-box; outline: none; }
+        .preview-text { font-size: 13px; color: var(--p); margin-bottom: 15px; font-weight: bold; text-align: center; background: #f0f7ff; padding: 10px; border-radius: 8px; }
+        
+        .list-container { max-height: 350px; overflow-y: auto; margin-top: 10px; }
+        .item-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #eee; }
+        .del-btn { background: #fee2e2; color: #ef4444; border: none; padding: 8px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
+<div class="app">
+    <div class="header">QUẢN LÝ TÀI CHÍNH V29</div>
+    <div class="month-nav">
+        <button class="nav-btn" onclick="changeMonth(-1)">◀</button>
+        <span id="monthDisplay" style="font-weight:bold">--/--</span>
+        <button class="nav-btn" onclick="changeMonth(1)">▶</button>
+    </div>
+    <div id="cal" class="calendar"></div>
+
+    <div class="summary">
+        <div class="month-detail-icon" onclick="showMonthDet()">📋</div>
+        <div class="row">Thu nhập: <span id="sIn" style="color:var(--i)">0đ</span></div>
+        <div class="row">Mượn thêm: <span id="sBo" style="color:var(--b)">0đ</span></div>
+        <div class="row">Chi tiêu: <span id="sEx" style="color:var(--e)">0đ</span></div>
+        <div class="final row">Số dư: <span id="sFi">0đ</span></div>
+    </div>
+
+    <div class="goal-box" onclick="openGoal()">
+        <div class="goal-header">
+            <span style="font-weight:bold; color:var(--dark)">🎯 <span id="gName">---</span></span>
+            <span id="gPriceTarget" style="font-size: 0.85rem; color: var(--b); font-weight: bold;">0đ</span>
+        </div>
+        <div class="progress-bar"><div id="gFill" class="progress-fill"></div></div>
+        <div id="gAnalyze" style="font-size:0.85rem; color:#555">Đang tính...</div>
+    </div>
+
+    <div class="actions">
+        <button class="btn-main" style="background:var(--i)" onclick="openInp('income')">THU</button>
+        <button class="btn-main" style="background:var(--b)" onclick="openInp('borrow')">MƯỢN</button>
+        <button class="btn-main" style="background:var(--e)" onclick="openInp('expense')">CHI</button>
+    </div>
+</div>
+
+<div id="mInp" class="overlay">
+    <div class="pop">
+        <h3 id="pTit" style="margin:0; text-align:center">Nhập khoản</h3>
+        <input type="text" id="oneInp" class="input-full" placeholder="VD: sữa 50k hoặc 9tr8" oninput="updatePreview()">
+        <div id="onePreview" class="preview-text">Tổng cộng: 0đ</div>
+        <div style="display:flex; gap:10px">
+            <button onclick="closeAll()" style="flex:1; padding:12px; border:none; border-radius:10px; background:#eee">Hủy</button>
+            <button onclick="saveOne()" id="btnSave" style="flex:2; padding:12px; border:none; border-radius:10px; color:white; font-weight:bold; background:#ccc">LƯU LẠI</button>
+        </div>
+    </div>
+</div>
+
+<div id="mGoal" class="overlay">
+    <div class="pop">
+        <h3 style="margin:0 0 10px 0; text-align:center">Cài đặt mục tiêu</h3>
+        <input type="text" id="giName" class="input-full" placeholder="Tên món đồ">
+        <input type="text" id="giPrice" class="input-full" placeholder="Giá tiền (VD: 9tr8 hoặc 20.000.000)">
+        <button onclick="saveGoal()" style="width:100%; padding:14px; border:none; background:var(--b); color:white; border-radius:12px; font-weight:bold">XÁC NHẬN LƯU</button>
+        <button onclick="closeAll()" style="width:100%; padding:10px; border:none; background:none; color:#999">Đóng</button>
+    </div>
+</div>
+
+<div id="mMonthDet" class="overlay"><div class="pop"><h3>Tổng kết tháng</h3><div id="mDetList" class="list-container"></div><button onclick="closeAll()" style="width:100%; margin-top:15px; padding:12px; border:none; background:var(--dark); color:white; border-radius:10px">ĐÓNG</button></div></div>
+<div id="mDet" class="overlay"><div class="pop"><h3 id="dTit">Chi tiết</h3><div id="dList" class="list-container"></div><button onclick="closeAll()" style="width:100%; margin-top:15px; padding:12px; border:none; background:var(--dark); color:white; border-radius:10px">ĐÓNG</button></div></div>
+
+<script>
+    let viewDate = new Date(); 
+    let selDay = new Date().getDate();
+    let db = JSON.parse(localStorage.getItem('MONEY_V29')) || {};
+    let goal = JSON.parse(localStorage.getItem('GOAL_V29')) || { name: "Mục tiêu", price: 10000000 };
+
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playTing() {
+        try {
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.type = 'sine'; osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+        } catch(e) {}
+    }
+
+    function getIcon(name, type) {
+        if(type === 'income') return '💰'; if(type === 'borrow') return '🤝';
+        let n = name.toLowerCase();
+        if(n.includes('sữa') || n.includes('ăn') || n.includes('gạo')) return '🍴';
+        if(n.includes('xe') || n.includes('xăng')) return '⛽';
+        return '💸';
+    }
+
+    function parseSmart(str) {
+        let results = [];
+        let s = str.toLowerCase().replace(/,/g, '.');
+        // Regex nới lỏng: [Tên tùy chọn] + [Số] + [Đơn vị] + [Số lẻ]
+        let regex = /([a-z\sàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]*)\s*(\d+[.,]?\d*)\s*(tr|m|k|triệu|ngàn|nghin)\s*(\d*)/gi;
+        let matches = [...s.matchAll(regex)];
+
+        if (matches.length > 0) {
+            matches.forEach(m => {
+                let name = m[1].trim() || "Khoản chi";
+                let main = parseFloat(m[2]);
+                let mul = (m[3] === 'tr' || m[3] === 'm' || m[3] === 'triệu') ? 1000000 : 1000;
+                let val = main * mul;
+                if (m[4]) {
+                    if(m[4].length === 1) val += (parseFloat(m[4]) * mul / 10);
+                    else if(m[4].length === 2) val += (parseFloat(m[4]) * mul / 100);
+                    else val += parseFloat(m[4]);
+                }
+                results.push({ name, amount: Math.floor(val) });
+            });
+        } else {
+            // Nếu chỉ nhập số thuần
+            let pure = s.match(/\d+/g);
+            if(pure) pure.forEach(n => results.push({ name: "Khoản chi", amount: parseInt(n) }));
+        }
+        return results;
+    }
+
+    function render() {
+        const y = viewDate.getFullYear(), m = viewDate.getMonth(), mKey = `${y}-${(m+1).toString().padStart(2, '0')}`;
+        document.getElementById('monthDisplay').innerText = `Tháng ${(m+1).toString().padStart(2,'0')}/${y}`;
+        const first = new Date(y, m, 1).getDay(), days = new Date(y, m+1, 0).getDate();
+        const cal = document.getElementById('cal'); cal.innerHTML = '';
+        for (let i = 0; i < (first === 0 ? 6 : first - 1); i++) cal.appendChild(document.createElement('div'));
+
+        let tI=0, tE=0, tB=0; const mData = db[mKey] || {};
+        for (let d = 1; d <= days; d++) {
+            const div = document.createElement('div');
+            const isT = d === new Date().getDate() && m === new Date().getMonth() && y === new Date().getFullYear();
+            div.className = `day ${selDay === d ? 'selected' : ''} ${isT ? 'today' : ''}`;
+            if(mData[d]) {
+                let dI=0, dE=0, dB=0;
+                mData[d].forEach(it => { if(it.type==='income') tI+=it.amount; else if(it.type==='borrow') tB+=it.amount; else tE+=it.amount; });
+                div.innerHTML = `<span>${d}</span><div class="dot-container">${mData[d].some(x=>x.type==='income')?'<div class="dot" style="background:var(--i)"></div>':''}${mData[d].some(x=>x.type==='expense')?'<div class="dot" style="background:var(--e)"></div>':''}${mData[d].some(x=>x.type==='borrow')?'<div class="dot" style="background:var(--b)"></div>':''}</div>`;
+            } else div.innerHTML = `<span>${d}</span>`;
+            div.onclick = () => { if(selDay === d) showDet(d); else { selDay = d; render(); } };
+            cal.appendChild(div);
+        }
+        let bal = (tI + tB - tE);
+        document.getElementById('sIn').innerText = tI.toLocaleString()+'đ';
+        document.getElementById('sBo').innerText = tB.toLocaleString()+'đ';
+        document.getElementById('sEx').innerText = tE.toLocaleString()+'đ';
+        document.getElementById('sFi').innerText = bal.toLocaleString()+'đ';
+        updateGoalUI(bal);
+    }
+
+    function updateGoalUI(bal) {
+        document.getElementById('gName').innerText = goal.name;
+        document.getElementById('gPriceTarget').innerText = goal.price.toLocaleString() + 'đ';
+        let pct = Math.min(100, (bal / goal.price) * 100);
+        document.getElementById('gFill').style.width = pct + '%';
+        let debt = Math.max(0, goal.price - bal);
+        document.getElementById('gAnalyze').innerHTML = `Tiến độ: <b>${pct.toFixed(1)}%</b> | Thiếu: <b style="color:var(--e)">${debt.toLocaleString()}đ</b>`;
+    }
+
+    function updatePreview() {
+        const res = parseSmart(document.getElementById('oneInp').value);
+        let total = res.reduce((s, i) => s + i.amount, 0);
+        document.getElementById('onePreview').innerText = `Tổng cộng: ${total.toLocaleString()}đ`;
+        
+        const btn = document.getElementById('btnSave');
+        if(total > 0) {
+            btn.style.background = document.getElementById('mInp').dataset.color;
+            btn.style.cursor = "pointer";
+            btn.disabled = false;
+        } else {
+            btn.style.background = "#ccc";
+            btn.disabled = true;
+        }
+    }
+
+    function openInp(t) {
+        const m = document.getElementById('mInp'); m.style.display = 'flex'; m.dataset.type = t;
+        let color = t === 'income' ? 'var(--i)' : (t === 'borrow' ? 'var(--b)' : 'var(--e)');
+        m.dataset.color = color;
+        document.getElementById('oneInp').value = ''; updatePreview();
+        setTimeout(() => document.getElementById('oneInp').focus(), 150);
+    }
+
+    function saveOne() {
+        const res = parseSmart(document.getElementById('oneInp').value);
+        if(res.length === 0) return;
+        const type = document.getElementById('mInp').dataset.type;
+        const mKey = `${viewDate.getFullYear()}-${(viewDate.getMonth()+1).toString().padStart(2,'0')}`;
+        if(!db[mKey]) db[mKey] = {}; if(!db[mKey][selDay]) db[mKey][selDay] = [];
+        res.forEach(it => db[mKey][selDay].push({ id: Date.now()+Math.random(), name: it.name, amount: it.amount, type, icon: getIcon(it.name, type) }));
+        localStorage.setItem('MONEY_V29', JSON.stringify(db));
+        playTing(); render(); closeAll();
+    }
+
+    function openGoal() { document.getElementById('mGoal').style.display='flex'; document.getElementById('giName').value=goal.name; document.getElementById('giPrice').value=goal.price.toLocaleString(); }
+    function saveGoal() {
+        let res = parseSmart(document.getElementById('giPrice').value);
+        if(res.length > 0) {
+            goal = { name: document.getElementById('giName').value || "Mục tiêu", price: res[0].amount };
+            localStorage.setItem('GOAL_V29', JSON.stringify(goal));
+            playTing(); render(); closeAll();
+        }
+    }
+
+    function showDet(d) {
+        const mKey = `${viewDate.getFullYear()}-${(viewDate.getMonth()+1).toString().padStart(2,'0')}`;
+        const list = document.getElementById('dList'); document.getElementById('dTit').innerText = `Ngày ${d}/${viewDate.getMonth()+1}`;
+        list.innerHTML = ''; const items = db[mKey]?.[d] || [];
+        items.forEach(it => {
+            const row = document.createElement('div'); row.className = 'item-row';
+            let c = it.type === 'income' ? 'var(--i)' : (it.type === 'borrow' ? 'var(--b)' : 'var(--e)');
+            row.innerHTML = `<div style="display:flex;align-items:center"><span>${it.icon}</span><span style="margin-left:8px">${it.name}: <b style="color:${c}">${it.amount.toLocaleString()}đ</b></span></div>`;
+            const btn = document.createElement('button'); btn.className = 'del-btn'; btn.innerText = 'Xóa';
+            btn.onclick = () => { db[mKey][d] = db[mKey][d].filter(x => x.id !== it.id); localStorage.setItem('MONEY_V29', JSON.stringify(db)); render(); showDet(d); };
+            row.appendChild(btn); list.appendChild(row);
+        });
+        document.getElementById('mDet').style.display='flex';
+    }
+
+    function showMonthDet() { 
+        const y = viewDate.getFullYear(), m = viewDate.getMonth(), mKey = `${y}-${(m+1).toString().padStart(2, '0')}`, list = document.getElementById('mDetList'); 
+        list.innerHTML = ''; const mData = db[mKey] || {}; 
+        for(let d=1; d<=31; d++) { if(mData[d]) mData[d].forEach(it => {
+            const row = document.createElement('div'); row.className = 'item-row';
+            let c = it.type === 'income' ? 'var(--i)' : (it.type === 'borrow' ? 'var(--b)' : 'var(--e)');
+            row.innerHTML = `<div style="display:flex;align-items:center"><span>${it.icon}</span><span style="margin-left:8px"><b>${d}/${m+1}</b>: ${it.name}</span></div><b style="color:${c}">${it.amount.toLocaleString()}đ</b>`;
+            list.appendChild(row);
+        }); }
+        document.getElementById('mMonthDet').style.display = 'flex';
+    }
+
+    function changeMonth(s) { viewDate.setMonth(viewDate.getMonth() + s); selDay = 1; render(); }
+    function closeAll() { document.querySelectorAll('.overlay').forEach(o => o.style.display='none'); }
+    render();
+</script>
+</body>
+</html>
