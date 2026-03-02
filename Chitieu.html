@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Quản Lý Tài Chính & Mục Tiêu V11</title>
+    <style>
+        :root { --p: #4A90E2; --e: #FF5252; --i: #4CAF50; --b: #FFA000; --gold: #FFD700; --dark: #1a3a5a; }
+        body { font-family: -apple-system, sans-serif; background: #121212; margin: 0; padding: 10px; display: flex; justify-content: center; }
+        .app { width: 100%; max-width: 400px; background: white; border-radius: 25px; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.4); }
+        .header { background: var(--dark); color: white; padding: 18px; text-align: center; font-weight: bold; }
+        
+        .calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; padding: 15px; }
+        .day { aspect-ratio: 1; border-radius: 12px; border: 1px solid #f0f0f0; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; position: relative; }
+        .day.selected { border: 3px solid var(--gold) !important; background: #fff9e6; box-shadow: 0 0 12px var(--gold); font-weight: bold; }
+        .day-icons { font-size: 10px; margin-top: 2px; min-height: 12px; }
+
+        .summary { margin: 10px 15px; padding: 15px; background: #f8f9fa; border-radius: 15px; font-size: 0.9rem; border: 1px solid #eee; }
+        .row { display: flex; justify-content: space-between; margin-bottom: 6px; }
+        .final { border-top: 2px solid #ddd; margin-top: 10px; padding-top: 10px; font-weight: bold; color: var(--p); font-size: 1.1rem; }
+
+        /* Mục tiêu phấn đấu */
+        .goal-box { margin: 0 15px 15px 15px; padding: 15px; background: #fffef0; border: 2px dashed var(--b); border-radius: 15px; }
+        .goal-title { font-weight: bold; color: var(--b); margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .progress-bar { height: 10px; background: #eee; border-radius: 5px; overflow: hidden; margin: 8px 0; }
+        .progress-fill { height: 100%; background: var(--i); width: 0%; transition: 0.5s; }
+        .goal-info { font-size: 0.85rem; color: #555; line-height: 1.4; }
+
+        .actions { display: flex; gap: 12px; padding: 0 15px 15px 15px; }
+        .btn-main { flex: 1; border: none; padding: 15px; border-radius: 12px; color: white; font-weight: bold; font-size: 1rem; cursor: pointer; }
+
+        .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 1000; justify-content: center; align-items: center; padding: 20px; }
+        .pop { background: white; width: 100%; max-width: 320px; border-radius: 20px; padding: 20px; box-sizing: border-box; }
+        input { width: 100%; padding: 14px; margin: 10px 0; border: 1px solid #ddd; border-radius: 10px; font-size: 16px; box-sizing: border-box; }
+        
+        .item-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #eee; }
+        .btn-del-trigger { background: var(--e); color: white; border: none; padding: 8px 15px; border-radius: 8px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="app">
+    <div class="header">QUẢN LÝ TÀI CHÍNH 2026</div>
+    <div id="cal" class="calendar"></div>
+
+    <div class="summary">
+        <div class="row">Thu nhập: <span id="sIn" style="color:var(--i)">0đ</span></div>
+        <div class="row">Chi tiêu: <span id="sEx" style="color:var(--e)">0đ</span></div>
+        <div class="row">Mượn thêm: <span id="sBo" style="color:var(--b)">0đ</span></div>
+        <div class="row final">Số dư tháng này: <span id="sFi">0đ</span></div>
+    </div>
+
+    <div class="goal-box" onclick="openGoal()">
+        <div class="goal-title">
+            <span>🎯 MỤC TIÊU PHẤN ĐẤU</span>
+            <span style="font-size: 0.7rem; color: #999;">Chạm để sửa ✎</span>
+        </div>
+        <div id="goalDisplay">
+            <div class="goal-info">
+                Đang tiết kiệm để: <b id="gName">Chưa đặt</b><br>
+                Giá trị: <b id="gPrice">0đ</b>
+            </div>
+            <div class="progress-bar"><div id="gFill" class="progress-fill"></div></div>
+            <div class="goal-info" id="gAnalyze">
+                Cần thêm: 0đ | Dự kiến: -- tháng
+            </div>
+        </div>
+    </div>
+
+    <div class="actions">
+        <button class="btn-main" style="background:var(--i)" onclick="openInp('income')">+ THU</button>
+        <button class="btn-main" style="background:var(--e)" onclick="openInp('expense')">- CHI</button>
+    </div>
+</div>
+
+<div id="mInp" class="overlay">
+    <div class="pop">
+        <h3 id="pTit" style="margin-top:0">Nhập khoản</h3>
+        <input type="text" id="vInp" placeholder="Ví dụ: 11tr hoặc 200k" oninput="previewMoney()">
+        <span id="moneyPreview" style="font-size:11px; color:#888;">Bằng số: 0 đ</span>
+        <div style="display:flex; gap:10px; margin-top:15px">
+            <button onclick="closeAll()" style="flex:1; border:none; padding:12px; border-radius:10px">Hủy</button>
+            <button onclick="save()" style="flex:1; border:none; padding:12px; border-radius:10px; background:var(--p); color:white; font-weight:bold">LƯU</button>
+        </div>
+    </div>
+</div>
+
+<div id="mGoal" class="overlay">
+    <div class="pop">
+        <h3 style="margin-top:0">Cài đặt mục tiêu</h3>
+        <input type="text" id="giName" placeholder="Tên mục tiêu (VD: Mua Tivi)">
+        <input type="text" id="giPrice" placeholder="Giá tiền (VD: 20.9tr)">
+        <div style="display:flex; gap:10px; margin-top:15px">
+            <button onclick="closeAll()" style="flex:1; border:none; padding:12px; border-radius:10px">Hủy</button>
+            <button onclick="saveGoal()" style="flex:1; border:none; padding:12px; border-radius:10px; background:var(--b); color:white; font-weight:bold">XÁC NHẬN</button>
+        </div>
+    </div>
+</div>
+
+<div id="mDet" class="overlay">
+    <div class="pop">
+        <h3 id="dTit" style="margin:0 0 15px 0">Chi tiết</h3>
+        <div id="dList" style="max-height:250px; overflow-y:auto"></div>
+        <button onclick="closeAll()" style="width:100%; margin-top:15px; padding:12px; border:none; background:var(--p); color:white; border-radius:10px; font-weight:bold">ĐÓNG</button>
+    </div>
+</div>
+
+<script>
+    let sel = new Date().getDate(); 
+    let db = JSON.parse(localStorage.getItem('MONEY_V11')) || {};
+    let goal = JSON.parse(localStorage.getItem('GOAL_V11')) || { name: "Mua Tivi", price: 20900000 };
+    let currentBalance = 0;
+
+    function parseMoney(val) {
+        if (!val) return 0;
+        let s = val.toString().toLowerCase().replace(/\s/g, '').replace(/,/g, '.');
+        let num = parseFloat(s);
+        if (isNaN(num)) return 0;
+        if (s.includes('tr') || s.includes('m')) num *= 1000000;
+        else if (s.includes('k')) num *= 1000;
+        return Math.floor(num);
+    }
+
+    function previewMoney() {
+        const result = parseMoney(document.getElementById('vInp').value);
+        document.getElementById('moneyPreview').innerText = "Bằng số: " + result.toLocaleString() + " đ";
+    }
+
+    function render() {
+        const cal = document.getElementById('cal');
+        cal.innerHTML = '';
+        let tI=0, tE=0, tB=0;
+
+        for(let i=1; i<=31; i++) {
+            const d = document.createElement('div');
+            d.className = `day ${sel === i ? 'selected' : ''}`;
+            d.innerHTML = `<b>${i}</b><div class="day-icons">${db[i] ? '💰' : ''}</div>`;
+            if(db[i]) {
+                db[i].forEach(it => {
+                    if(it.type==='expense') tE += it.amount;
+                    else if(it.name.includes('mượn')) tB += it.amount;
+                    else tI += it.amount;
+                });
+            }
+            d.onclick = () => { if(sel === i) showDet(i); else { sel = i; render(); } };
+            cal.appendChild(d);
+        }
+        currentBalance = (tI + tB - tE);
+        document.getElementById('sIn').innerText = tI.toLocaleString()+'đ';
+        document.getElementById('sEx').innerText = tE.toLocaleString()+'đ';
+        document.getElementById('sBo').innerText = tB.toLocaleString()+'đ';
+        document.getElementById('sFi').innerText = currentBalance.toLocaleString()+'đ';
+        updateGoalUI();
+    }
+
+    function updateGoalUI() {
+        document.getElementById('gName').innerText = goal.name;
+        document.getElementById('gPrice').innerText = goal.price.toLocaleString() + 'đ';
+        
+        let percent = (currentBalance / goal.price) * 100;
+        if (percent > 100) percent = 100;
+        if (percent < 0) percent = 0;
+        document.getElementById('gFill').style.width = percent + '%';
+
+        let remain = goal.price - currentBalance;
+        if (remain < 0) remain = 0;
+
+        // Tính số tháng dự kiến (Giả sử số dư tháng này là số tiền để dành được mỗi tháng)
+        let months = "vô hạn";
+        if (currentBalance > 0) {
+            months = (remain / currentBalance).toFixed(1);
+        }
+
+        document.getElementById('gAnalyze').innerHTML = 
+            `Còn thiếu: <b>${remain.toLocaleString()}đ</b><br>` +
+            `Dự kiến: <b style="color:var(--p)">${months} tháng</b> nữa sẽ đủ.`;
+    }
+
+    function openGoal() {
+        document.getElementById('mGoal').style.display = 'flex';
+        document.getElementById('giName').value = goal.name;
+        document.getElementById('giPrice').value = goal.price;
+    }
+
+    function saveGoal() {
+        goal.name = document.getElementById('giName').value || "Mục tiêu";
+        goal.price = parseMoney(document.getElementById('giPrice').value);
+        localStorage.setItem('GOAL_V11', JSON.stringify(goal));
+        render();
+        closeAll();
+    }
+
+    function openInp(t) {
+        document.getElementById('mInp').style.display='flex';
+        document.getElementById('mInp').dataset.type = t;
+        document.getElementById('pTit').innerText = t==='income'?'THU NHẬP':'CHI TIÊU';
+        document.getElementById('vInp').value = '';
+    }
+
+    function save() {
+        const t = document.getElementById('mInp').dataset.type;
+        const v = parseMoney(document.getElementById('vInp').value);
+        if (!v) return alert("Nhập số tiền!");
+        if (!db[sel]) db[sel] = [];
+        db[sel].push({ id: Date.now(), name: t==='income'?'Thu':'Chi', amount: v, type: t });
+        localStorage.setItem('MONEY_V11', JSON.stringify(db));
+        render();
+        closeAll();
+    }
+
+    function showDet(day) {
+        const list = document.getElementById('dList');
+        document.getElementById('dTit').innerText = "Ngày " + day;
+        list.innerHTML = '';
+        (db[day] || []).forEach(it => {
+            const row = document.createElement('div');
+            row.className = 'item-row';
+            row.innerHTML = `<span>${it.name}: <b>${it.amount.toLocaleString()}đ</b></span>`;
+            const btn = document.createElement('button');
+            btn.innerText = 'XÓA'; btn.className = 'btn-del-trigger';
+            btn.onclick = () => {
+                if(confirm("Xóa khoản này?")) {
+                    db[day] = db[day].filter(x => x.id !== it.id);
+                    localStorage.setItem('MONEY_V11', JSON.stringify(db));
+                    render(); showDet(day);
+                }
+            };
+            row.appendChild(btn); list.appendChild(row);
+        });
+        document.getElementById('mDet').style.display = 'flex';
+    }
+
+    function closeAll() {
+        document.querySelectorAll('.overlay').forEach(m => m.style.display='none');
+    }
+
+    render();
+</script>
+</body>
+</html>
